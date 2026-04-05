@@ -1,0 +1,18 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /comprovacoes/{userId}/{taskId}/{fileName} {
+      // Only the owner or a gestor can read
+      allow read: if request.auth != null && (
+        request.auth.uid == userId ||
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'gestor'
+      );
+      // Only the owner can upload
+      allow write: if request.auth != null &&
+        request.auth.uid == userId &&
+        request.resource.size < 10 * 1024 * 1024 && // 10MB max
+        (request.resource.contentType.matches('image/.*') ||
+         request.resource.contentType == 'application/pdf');
+    }
+  }
+}

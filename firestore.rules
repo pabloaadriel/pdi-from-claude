@@ -1,0 +1,48 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: check if authenticated
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Helper: check if gestor
+    function isGestor() {
+      return isAuth() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'gestor';
+    }
+
+    // Helper: is the requesting user the owner
+    function isOwner(userId) {
+      return isAuth() && request.auth.uid == userId;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && request.auth.uid == userId;
+      allow update: if isAuth() && request.auth.uid == userId;
+      allow delete: if false;
+    }
+
+    // Tasks collection
+    match /tasks/{taskId} {
+      allow read: if isAuth() && (
+        isOwner(resource.data.userId) || isGestor()
+      );
+      allow create: if isGestor();
+      allow update: if isAuth() && (
+        isOwner(resource.data.userId) || isGestor()
+      );
+      allow delete: if isGestor();
+    }
+
+    // Logins collection
+    match /logins/{loginId} {
+      allow read: if isGestor();
+      allow create: if isAuth();
+      allow update, delete: if false;
+    }
+  }
+}
